@@ -48,6 +48,7 @@ export interface CalculatorInputs {
   contractSecondPayment: number;
   scheduledBalance: number;
   paidDeposit: number;
+  paidOptionCost: number;
   paidInterim: number;
   interimLoanPrincipal: number;
   interimPayments: InterimPaymentInstallment[];
@@ -215,6 +216,7 @@ export const EXAMPLE_INPUTS: CalculatorInputs = {
   scheduledBalance: examplePreset.balance,
   paidDeposit:
     examplePreset.contractFirstPayment + examplePreset.contractSecondPayment,
+  paidOptionCost: 0,
   paidInterim: 0,
   interimLoanPrincipal:
     examplePreset.intermediatePayment * examplePreset.intermediatePaymentCount,
@@ -251,6 +253,7 @@ export const EMPTY_INPUTS: CalculatorInputs = {
   contractSecondPayment: 0,
   scheduledBalance: 0,
   paidDeposit: 0,
+  paidOptionCost: 0,
   paidInterim: 0,
   interimLoanPrincipal: 0,
   interimPayments: createInterimPayments(0, 6),
@@ -386,7 +389,12 @@ export function calculate(inputs: CalculatorInputs): CalculationResult {
     inputs.interimPayments.length > 0 ? interimSummary.unpaid : 0;
   const scheduledIntermediateTotal =
     inputs.interimPayments.length > 0 ? interimSummary.total : 0;
-  const paidTotal = sum([inputs.paidDeposit, selfPaidIntermediate]);
+  // 이미 납부한 옵션비도 계약금·본인 납부 중도금과 함께 실제 납부액으로 차감한다.
+  const paidTotal = sum([
+    inputs.paidDeposit,
+    inputs.paidOptionCost,
+    selfPaidIntermediate,
+  ]);
   const paidToDeveloperTotal = sum([paidTotal, loanPaidIntermediate]);
   const remainingBalance = Math.max(
     contractTotal - paidToDeveloperTotal,
@@ -467,6 +475,12 @@ export function calculate(inputs: CalculatorInputs): CalculationResult {
   const warnings: string[] = [];
   if (paidTotal > contractTotal) {
     warnings.push("현재까지 납부한 금액이 총 계약금액보다 큽니다.");
+  }
+  if (
+    (inputs.priceInputMode === "preset" || inputs.contractMode === "itemized") &&
+    safeWon(inputs.paidOptionCost) > safeWon(inputs.optionCost)
+  ) {
+    warnings.push("현재까지 납부한 옵션비가 입력한 유상 옵션비보다 큽니다.");
   }
   if (safeWon(inputs.acquisitionTaxReduction) > acquisitionTaxBefore) {
     warnings.push("취득세 감면액이 감면 전 취득세보다 커서 감면 후 세금을 0원으로 제한했습니다.");
