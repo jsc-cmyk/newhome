@@ -22,6 +22,27 @@ test("기본 예시값을 계산한다", () => {
   assert.equal(result.recommendedCash, 347_959_500);
 });
 
+test("현재까지 납부한 옵션비를 납부액에 포함해 남은 분양대금에서 차감한다", () => {
+  const input = copy(EXAMPLE_INPUTS);
+  input.optionCost = 10_000_000;
+  input.paidOptionCost = 4_000_000;
+
+  const result = calculate(input);
+  assert.equal(result.contractTotal, 377_290_000);
+  assert.equal(result.paidTotal, 39_900_000);
+  assert.equal(result.paidToDeveloperTotal, 255_300_000);
+  assert.equal(result.remainingBalance, 121_990_000);
+});
+
+test("납부한 옵션비가 옵션 계약금액보다 크면 경고한다", () => {
+  const input = copy(EXAMPLE_INPUTS);
+  input.optionCost = 1_000_000;
+  input.paidOptionCost = 2_000_000;
+
+  const result = calculate(input);
+  assert.match(result.warnings.join(" "), /옵션비보다 큽니다/);
+});
+
 test("감면액이 취득세보다 크면 취득세를 0원으로 제한한다", () => {
   const input = copy(EXAMPLE_INPUTS);
   input.acquisitionTaxRateBps = 100;

@@ -121,6 +121,7 @@ export default function Home() {
   const rows = [
     ["총 계약금액", result.contractTotal],
     ["현재까지 납부액", result.paidTotal],
+    ["현재까지 납부한 옵션비", inputs.paidOptionCost],
     ["시행사 납부액(대출 포함)", result.paidToDeveloperTotal],
     ["남은 분양대금", result.remainingBalance],
     ["중도금 대출 상환 예정 원금", result.interimLoanRepaymentPrincipal],
@@ -334,7 +335,7 @@ export default function Home() {
               <MoneyInput id="contractFirstPayment" label="계약금 1차" value={inputs.contractFirstPayment} onChange={(v) => set("contractFirstPayment", v)} />
               <MoneyInput id="contractSecondPayment" label="계약금 2차" value={inputs.contractSecondPayment} onChange={(v) => set("contractSecondPayment", v)} />
               <MoneyInput id="paidDeposit" label="현재까지 납부한 계약금" value={inputs.paidDeposit} onChange={(v) => set("paidDeposit", v)} />
-              <MoneyInput id="scheduledBalance" label="예정 잔금" value={inputs.scheduledBalance} onChange={(v) => set("scheduledBalance", v)} />
+              <MoneyInput id="paidOptionCost" label="현재까지 납부한 옵션비" value={inputs.paidOptionCost} onChange={(v) => set("paidOptionCost", v)} />
             </div>
 
             <div className="installment-section">

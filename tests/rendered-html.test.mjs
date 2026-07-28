@@ -23,6 +23,8 @@ test("입주비용 계산기 화면을 서버 렌더링한다", async () => {
   assert.match(html, /예시 단지에서 선택/);
   assert.match(html, /주택형/);
   assert.match(html, /기준층/);
+  assert.match(html, /현재까지 납부한 옵션비/);
+  assert.doesNotMatch(html, /예정 잔금/);
   assert.match(html, /중도금 납부 상태/);
   assert.match(html, /중도금 대출 상환 예정 원금/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/);
