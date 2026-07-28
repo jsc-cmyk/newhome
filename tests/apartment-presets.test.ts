@@ -13,6 +13,7 @@ import {
   applyApartmentPreset,
   calculate,
   createInterimPayments,
+  createExampleInputs,
   EXAMPLE_INPUTS,
   normalizeCalculatorInputs,
   type CalculatorInputs,
@@ -51,6 +52,23 @@ test("59A 기준층 분양가격은 359,000,000원이다", () => {
 test("59A 기준층에 확장비를 더한 총 계약금액은 367,290,000원이다", () => {
   const result = calculate(copy(EXAMPLE_INPUTS));
   assert.equal(result.contractTotal, 367_290_000);
+});
+
+test("예시값 불러오기는 선택한 주택형과 층의 공고 데이터를 적용한다", () => {
+  const example = createExampleInputs("84B", "1층");
+
+  assert.equal(example.priceInputMode, "preset");
+  assert.equal(example.salePrice, 396_000_000);
+  assert.equal(example.extensionCost, 8_290_000);
+  assert.equal(example.paidDeposit, 39_600_000);
+  assert.equal(example.scheduledBalance, 118_800_000);
+  assert.equal(example.interimPayments.length, 6);
+  assert.ok(
+    example.interimPayments.every(
+      (payment) => payment.amount === 39_600_000 && payment.status === "loan",
+    ),
+  );
+  assert.equal(calculate(example).contractTotal, 404_290_000);
 });
 
 test("59A 4층은 기준층보다 11,000,000원 저렴하다", () => {

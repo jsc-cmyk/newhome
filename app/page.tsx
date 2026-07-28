@@ -14,6 +14,7 @@ import {
   applyApartmentPreset,
   calculate,
   CalculatorInputs,
+  createExampleInputs,
   EMPTY_INPUTS,
   ENTRY_COST_LABELS,
   EntryCostKey,
@@ -152,7 +153,8 @@ export default function Home() {
   };
   const loadExample = () => {
     if (!confirmPresetOverwrite()) return;
-    setInputs(cloneInputs(EXAMPLE_INPUTS));
+    setInputs(createExampleInputs(inputs.housingType, inputs.floorCategory));
+    notify(`${inputs.housingType} ${inputs.floorCategory} 예시값을 불러왔습니다.`);
   };
 
   const priceDifferenceLabel =

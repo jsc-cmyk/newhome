@@ -294,6 +294,22 @@ export function applyApartmentPreset(
   );
 }
 
+/**
+ * 홈페이지의 "예시값 불러오기"에서 사용하는 입력값을 생성한다.
+ * 선택한 주택형·층의 공고 데이터와 별도 예시 확장비를 함께 적용하고,
+ * 중도금 6회는 전액 대출 납부 상태로 초기화한다.
+ */
+export function createExampleInputs(
+  housingType: HousingType = "59A",
+  floorCategory: FloorCategory = "기준층",
+): CalculatorInputs {
+  return applyApartmentPreset(
+    structuredClone(EXAMPLE_INPUTS),
+    housingType,
+    floorCategory,
+  );
+}
+
 export function normalizeCalculatorInputs(saved: unknown): CalculatorInputs {
   if (!saved || typeof saved !== "object") {
     return structuredClone(EXAMPLE_INPUTS);
