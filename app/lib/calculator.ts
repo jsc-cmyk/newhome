@@ -65,6 +65,7 @@ export interface CalculatorInputs {
   educationTaxMode: "rate" | "direct";
   educationTaxRateBps: number;
   educationTaxDirect: number;
+  educationTaxReduction: number;
   ruralTaxMode: RuralTaxMode;
   ruralTaxBase: RuralTaxBase;
   ruralTaxRateBps: number;
@@ -91,6 +92,8 @@ export interface CalculationResult {
   acquisitionTaxBefore: number;
   acquisitionTaxReductionApplied: number;
   acquisitionTaxAfter: number;
+  educationTaxBefore: number;
+  educationTaxReductionApplied: number;
   educationTax: number;
   ruralTax: number;
   acquisitionTaxTotal: number;
@@ -242,6 +245,7 @@ export const EXAMPLE_INPUTS: CalculatorInputs = {
   educationTaxMode: "rate",
   educationTaxRateBps: 0,
   educationTaxDirect: 0,
+  educationTaxReduction: 0,
   ruralTaxMode: "rate",
   ruralTaxBase: "contract",
   ruralTaxRateBps: 0,
@@ -464,10 +468,18 @@ export function calculate(inputs: CalculatorInputs): CalculationResult {
     acquisitionTaxBefore - acquisitionTaxReductionApplied,
     0,
   );
-  const educationTax =
+  const educationTaxBefore =
     inputs.educationTaxMode === "direct"
       ? safeWon(inputs.educationTaxDirect)
       : percentageOf(contractTotal, inputs.educationTaxRateBps);
+  const educationTaxReductionApplied = Math.min(
+    safeWon(inputs.educationTaxReduction),
+    educationTaxBefore,
+  );
+  const educationTax = Math.max(
+    educationTaxBefore - educationTaxReductionApplied,
+    0,
+  );
   // 농어촌특별세는 적용 사유에 따라 취득가액 또는 취득세 감면액을
   // 과세표준으로 삼을 수 있어 사용자가 계산 기준과 세율을 직접 선택한다.
   const ruralTaxRateBase =
@@ -547,6 +559,11 @@ export function calculate(inputs: CalculatorInputs): CalculationResult {
   if (safeWon(inputs.acquisitionTaxReduction) > acquisitionTaxBefore) {
     warnings.push("취득세 감면액이 감면 전 취득세보다 커서 감면 후 세금을 0원으로 제한했습니다.");
   }
+  if (safeWon(inputs.educationTaxReduction) > educationTaxBefore) {
+    warnings.push(
+      "지방교육세 감면액이 감면 전 지방교육세보다 커서 감면 후 세금을 0원으로 제한했습니다.",
+    );
+  }
   if (
     inputs.priceInputMode === "preset" &&
     scheduledPaymentTotal !== safeWon(inputs.salePrice)
@@ -574,6 +591,8 @@ export function calculate(inputs: CalculatorInputs): CalculationResult {
     acquisitionTaxBefore,
     acquisitionTaxReductionApplied,
     acquisitionTaxAfter,
+    educationTaxBefore,
+    educationTaxReductionApplied,
     educationTax,
     ruralTax,
     acquisitionTaxTotal,

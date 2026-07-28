@@ -54,6 +54,31 @@ test("감면액이 취득세보다 크면 취득세를 0원으로 제한한다",
   assert.match(result.warnings.join(" "), /0원으로 제한/);
 });
 
+test("세율로 계산한 지방교육세에서 감면금액을 차감한다", () => {
+  const input = copy(EXAMPLE_INPUTS);
+  input.educationTaxMode = "rate";
+  input.educationTaxRateBps = 10;
+  input.educationTaxReduction = 100_000;
+
+  const result = calculate(input);
+  assert.equal(result.educationTaxBefore, 367_290);
+  assert.equal(result.educationTaxReductionApplied, 100_000);
+  assert.equal(result.educationTax, 267_290);
+});
+
+test("직접 입력한 지방교육세에도 감면을 적용하고 0원으로 제한한다", () => {
+  const input = copy(EXAMPLE_INPUTS);
+  input.educationTaxMode = "direct";
+  input.educationTaxDirect = 500_000;
+  input.educationTaxReduction = 700_000;
+
+  const result = calculate(input);
+  assert.equal(result.educationTaxBefore, 500_000);
+  assert.equal(result.educationTaxReductionApplied, 500_000);
+  assert.equal(result.educationTax, 0);
+  assert.match(result.warnings.join(" "), /지방교육세 감면액/);
+});
+
 test("농어촌특별세를 취득가액 기준 세율로 계산한다", () => {
   const input = copy(EXAMPLE_INPUTS);
   input.ruralTaxMode = "rate";

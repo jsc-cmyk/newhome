@@ -37,5 +37,7 @@ test("입주비용 계산기 화면을 서버 렌더링한다", async () => {
   assert.match(html, /농어촌특별세 입력 방식/);
   assert.match(html, /농어촌특별세율/);
   assert.match(html, /취득가액\(총 계약금액\)/);
+  assert.match(html, /지방교육세 감면금액/);
+  assert.match(html, /감면 후 지방교육세/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/);
 });

@@ -86,6 +86,21 @@ test("세율을 소수점 둘째 자리까지 순차 입력할 수 있다", asyn
   ).not.toContainText("취득세율이 입력되지 않아");
 });
 
+test("지방교육세 감면금액을 세율 계산 결과에서 차감한다", async ({ page }) => {
+  await page
+    .locator("details.section-card:has(#acquisitionRate) > summary")
+    .click();
+
+  await page
+    .getByRole("textbox", { name: "지방교육세율", exact: true })
+    .fill("0.1");
+  await page.getByLabel("지방교육세 감면금액").fill("100000");
+
+  await expect(
+    page.locator(".mini-results").filter({ hasText: "감면 후 지방교육세" }),
+  ).toContainText("267,290원");
+});
+
 test("농어촌특별세를 선택한 과세표준의 세율로 계산한다", async ({ page }) => {
   await page
     .locator("details.section-card:has(#acquisitionRate) > summary")
