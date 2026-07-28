@@ -23,7 +23,7 @@ test("주택형 변경 시 공식 발코니 확장비를 자동 적용한다", a
 });
 
 test("직접 입력 모드는 현재 입력값으로 잔금을 자동 계산한다", async ({ page }) => {
-  await page.getByRole("radio", { name: "직접 입력" }).check();
+  await page.getByRole("radio", { name: "직접 입력", exact: true }).check();
   await page.getByRole("textbox", { name: "분양가" }).fill("400000000");
   await page.getByRole("button", { name: "중도금 납부 상태" }).click();
 
@@ -35,7 +35,7 @@ test("직접 입력 모드는 현재 입력값으로 잔금을 자동 계산한�
 });
 
 test("시행사 납부액 초과 검증에 중도금 대출 납부액을 포함한다", async ({ page }) => {
-  await page.getByRole("radio", { name: "직접 입력" }).check();
+  await page.getByRole("radio", { name: "직접 입력", exact: true }).check();
   await page.getByRole("radio", { name: "총액 직접 입력" }).check();
   await page.getByLabel("총 계약금액").fill("200000000");
 
@@ -54,6 +54,21 @@ test("결과 문구와 미입력 항목 안내를 표시한다", async ({ page }
   await expect(page.getByRole("note", { name: "미입력 항목 안내" })).toContainText(
     "잔금대출 예정금액이 입력되지 않아",
   );
+});
+
+test("잔금대출을 분양가와 확장비 합계의 비율로 입력한다", async ({ page }) => {
+  await page.getByRole("radio", { name: "분양가+확장비 비율" }).check();
+  await page.getByLabel("잔금대출 비율").fill("70");
+
+  await expect(page.getByText("비율 계산 기준금액").locator("..")).toContainText(
+    "367,290,000원",
+  );
+  await expect(page.getByText("자동 계산 잔금대출").locator("..")).toContainText(
+    "257,103,000원",
+  );
+  await expect(
+    page.getByRole("note", { name: "미입력 항목 안내" }),
+  ).not.toContainText("잔금대출 예정금액이 입력되지 않아");
 });
 
 test("전체 초기화 전에 확인하고 취소 또는 승인할 수 있다", async ({ page }) => {
