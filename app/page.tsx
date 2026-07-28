@@ -73,10 +73,12 @@ export default function Home() {
     inputs.acquisitionTaxRateBps <= 0
       ? "취득세율이 입력되지 않아 취득 관련 세금이 0원으로 계산될 수 있습니다."
       : null,
-    inputs.finalLoan <= 0
+    result.loanCoverage <= 0
       ? "잔금대출 예정금액이 입력되지 않아 대출 충당금액을 0원으로 계산했습니다."
       : null,
   ].filter((notice): notice is string => notice !== null);
+  const canUseFinalLoanRate =
+    inputs.priceInputMode === "preset" || inputs.contractMode === "itemized";
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -436,16 +438,50 @@ export default function Home() {
             </div>
           </Details>
 
-          <Details title="대출" badge={formatWon(inputs.finalLoan)} open>
+          <Details title="대출" badge={formatWon(result.loanCoverage)} open>
             <div className="mini-results loan-summary">
               <ResultLine label="중도금 대출로 납부한 금액" value={result.loanPaidIntermediate} />
               <ResultLine label="중도금 대출 상환 예정 원금" value={result.interimLoanRepaymentPrincipal} strong />
             </div>
             <p className="section-help">중도금 대출 원금은 시행사에 납부된 분양대금에서 제외하고, 입주 시 상환하거나 잔금대출로 전환할 금액으로 한 번만 반영합니다.</p>
+            <div className="mode-switch compact loan-input-mode" role="radiogroup" aria-label="잔금대출 입력 방식">
+              <label>
+                <input
+                  type="radio"
+                  checked={inputs.finalLoanInputMode === "amount" || !canUseFinalLoanRate}
+                  onChange={() => set("finalLoanInputMode", "amount")}
+                />{" "}
+                금액 직접 입력
+              </label>
+              <label className={!canUseFinalLoanRate ? "disabled" : ""}>
+                <input
+                  type="radio"
+                  checked={inputs.finalLoanInputMode === "rate" && canUseFinalLoanRate}
+                  disabled={!canUseFinalLoanRate}
+                  onChange={() => set("finalLoanInputMode", "rate")}
+                />{" "}
+                분양가+확장비 비율
+              </label>
+            </div>
+            {!canUseFinalLoanRate && (
+              <p className="field-hint loan-rate-hint">
+                비율 입력은 분양가와 발코니 확장비를 입력하는 항목별 입력 방식에서 사용할 수 있습니다.
+              </p>
+            )}
             <div className="field-grid">
               <MoneyInput id="deferredInterest" label="중도금 대출 후불이자" value={inputs.deferredInterest} onChange={(v) => set("deferredInterest", v)} />
-              <MoneyInput id="finalLoan" label="잔금대출 예정금액" value={inputs.finalLoan} onChange={(v) => set("finalLoan", v)} />
+              {inputs.finalLoanInputMode === "rate" && canUseFinalLoanRate ? (
+                <RateInput id="finalLoanRate" label="잔금대출 비율" value={inputs.finalLoanRateBps} onChange={(v) => set("finalLoanRateBps", v)} />
+              ) : (
+                <MoneyInput id="finalLoan" label="잔금대출 예정금액" value={inputs.finalLoan} onChange={(v) => set("finalLoan", v)} />
+              )}
             </div>
+            {inputs.finalLoanInputMode === "rate" && canUseFinalLoanRate && (
+              <div className="mini-results loan-rate-summary">
+                <ResultLine label="비율 계산 기준금액" value={result.finalLoanBaseAmount} />
+                <ResultLine label="자동 계산 잔금대출" value={result.loanCoverage} strong />
+              </div>
+            )}
           </Details>
 
           <Details title="취득 관련 세금" badge={formatWon(result.acquisitionTaxTotal)}>

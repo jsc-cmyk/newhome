@@ -7,6 +7,7 @@ import {
 
 export type ContractMode = "itemized" | "direct";
 export type PriceInputMode = "preset" | "manual";
+export type FinalLoanInputMode = "amount" | "rate";
 export type ReservePreset = 0 | 3 | 5 | 10 | "custom";
 export type InterimPaymentStatus = "unpaid" | "self" | "loan";
 
@@ -54,7 +55,9 @@ export interface CalculatorInputs {
   interimLoanPrincipal: number;
   interimPayments: InterimPaymentInstallment[];
   deferredInterest: number;
+  finalLoanInputMode: FinalLoanInputMode;
   finalLoan: number;
+  finalLoanRateBps: number;
   acquisitionTaxRateBps: number;
   acquisitionTaxReduction: number;
   educationTaxMode: "rate" | "direct";
@@ -90,6 +93,7 @@ export interface CalculationResult {
   ancillaryTotal: number;
   taxAndAncillaryTotal: number;
   totalRequired: number;
+  finalLoanBaseAmount: number;
   loanCoverage: number;
   cashNeeded: number;
   surplus: number;
@@ -224,7 +228,9 @@ export const EXAMPLE_INPUTS: CalculatorInputs = {
     examplePreset.intermediatePayment * examplePreset.intermediatePaymentCount,
   interimPayments: exampleInterimPayments,
   deferredInterest: 0,
+  finalLoanInputMode: "amount",
   finalLoan: 0,
+  finalLoanRateBps: 0,
   acquisitionTaxRateBps: 0,
   acquisitionTaxReduction: 0,
   educationTaxMode: "rate",
@@ -469,7 +475,13 @@ export function calculate(inputs: CalculatorInputs): CalculationResult {
     acquisitionTaxTotal,
     ancillaryTotal,
   ]);
-  const loanCoverage = safeWon(inputs.finalLoan);
+  const canUseFinalLoanRate =
+    inputs.priceInputMode === "preset" || inputs.contractMode === "itemized";
+  const finalLoanBaseAmount = sum([inputs.salePrice, inputs.extensionCost]);
+  const loanCoverage =
+    inputs.finalLoanInputMode === "rate" && canUseFinalLoanRate
+      ? percentageOf(finalLoanBaseAmount, inputs.finalLoanRateBps)
+      : safeWon(inputs.finalLoan);
   const cashGap = totalRequired - loanCoverage;
   const cashNeeded = Math.max(cashGap, 0);
   const surplus = Math.max(-cashGap, 0);
@@ -514,6 +526,12 @@ export function calculate(inputs: CalculatorInputs): CalculationResult {
   ) {
     warnings.push("계약금·중도금·잔금 납부일정 합계가 분양가격과 다릅니다.");
   }
+  if (
+    inputs.finalLoanInputMode === "rate" &&
+    safeWon(inputs.finalLoanRateBps) > 10_000
+  ) {
+    warnings.push("잔금대출 비율이 100%를 초과합니다.");
+  }
   return {
     contractTotal,
     paidTotal,
@@ -536,6 +554,7 @@ export function calculate(inputs: CalculatorInputs): CalculationResult {
     ancillaryTotal,
     taxAndAncillaryTotal,
     totalRequired,
+    finalLoanBaseAmount,
     loanCoverage,
     cashNeeded,
     surplus,

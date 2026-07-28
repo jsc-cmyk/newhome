@@ -61,6 +61,26 @@ test("대출이 총 필요금액보다 크면 현금은 0원이고 여유분을 
   assert.equal(result.surplus, 68_610_000);
 });
 
+test("잔금대출을 분양가와 확장비 합계의 비율로 계산한다", () => {
+  const input = copy(EXAMPLE_INPUTS);
+  input.finalLoanInputMode = "rate";
+  input.finalLoanRateBps = 7_000;
+
+  const result = calculate(input);
+  assert.equal(result.finalLoanBaseAmount, 367_290_000);
+  assert.equal(result.loanCoverage, 257_103_000);
+  assert.equal(result.cashNeeded, 74_287_000);
+});
+
+test("잔금대출 비율이 100%를 초과하면 경고한다", () => {
+  const input = copy(EXAMPLE_INPUTS);
+  input.finalLoanInputMode = "rate";
+  input.finalLoanRateBps = 10_100;
+
+  const result = calculate(input);
+  assert.match(result.warnings.join(" "), /100%를 초과/);
+});
+
 test("모든 부대비용이 0원이어도 정상 계산한다", () => {
   const result = calculate(copy(EXAMPLE_INPUTS));
   assert.equal(result.acquisitionTaxTotal, 0);
