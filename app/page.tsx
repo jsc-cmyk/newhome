@@ -498,15 +498,58 @@ export default function Home() {
               {inputs.educationTaxMode === "rate"
                 ? <RateInput id="educationRate" label="지방교육세율" value={inputs.educationTaxRateBps} onChange={(v) => set("educationTaxRateBps", v)} />
                 : <MoneyInput id="educationDirect" label="지방교육세" value={inputs.educationTaxDirect} onChange={(v) => set("educationTaxDirect", v)} />}
-              <MoneyInput id="ruralTax" label="농어촌특별세" value={inputs.ruralTax} onChange={(v) => set("ruralTax", v)} />
               <MoneyInput id="otherTax" label="기타 세금" value={inputs.otherTax} onChange={(v) => set("otherTax", v)} />
+            </div>
+            <div className="tax-subsection">
+              <div className="mode-switch compact" role="radiogroup" aria-label="농어촌특별세 입력 방식">
+                <label><input type="radio" checked={inputs.ruralTaxMode === "rate"} onChange={() => set("ruralTaxMode", "rate")} /> 세율로 계산</label>
+                <label><input type="radio" checked={inputs.ruralTaxMode === "direct"} onChange={() => set("ruralTaxMode", "direct")} /> 금액 직접 입력</label>
+              </div>
+              {inputs.ruralTaxMode === "rate" ? (
+                <div className="field-grid">
+                  <div className="field">
+                    <label htmlFor="ruralTaxBase">농어촌특별세 계산 기준</label>
+                    <select
+                      id="ruralTaxBase"
+                      value={inputs.ruralTaxBase}
+                      onChange={(event) =>
+                        set(
+                          "ruralTaxBase",
+                          event.target.value as CalculatorInputs["ruralTaxBase"],
+                        )
+                      }
+                    >
+                      <option value="contract">취득가액(총 계약금액)</option>
+                      <option value="reduction">취득세 감면액</option>
+                    </select>
+                    <small>
+                      적용 사유에 맞는 과세표준을 선택하세요.
+                    </small>
+                  </div>
+                  <RateInput
+                    id="ruralTaxRate"
+                    label="농어촌특별세율"
+                    value={inputs.ruralTaxRateBps}
+                    onChange={(value) => set("ruralTaxRateBps", value)}
+                  />
+                </div>
+              ) : (
+                <div className="field-grid">
+                  <MoneyInput id="ruralTax" label="농어촌특별세" value={inputs.ruralTax} onChange={(v) => set("ruralTax", v)} />
+                </div>
+              )}
+              <p className="section-help">
+                국민주택규모 이하 서민주택 등은 농어촌특별세가 비과세될 수
+                있습니다. 감면 관련분은 감면세액을 기준으로 별도 과세될 수
+                있으므로 실제 적용 여부와 세율을 확인해 입력하세요.
+              </p>
             </div>
             <div className="mini-results">
               <ResultLine label="감면 전 취득세" value={result.acquisitionTaxBefore} />
               <ResultLine label="취득세 감면액" value={result.acquisitionTaxReductionApplied} />
               <ResultLine label="감면 후 취득세" value={result.acquisitionTaxAfter} />
               <ResultLine label="지방교육세" value={result.educationTax} />
-              <ResultLine label="농어촌특별세" value={inputs.ruralTax} />
+              <ResultLine label="농어촌특별세" value={result.ruralTax} />
               <ResultLine label="취득 관련 세금 합계" value={result.acquisitionTaxTotal} strong />
             </div>
           </Details>

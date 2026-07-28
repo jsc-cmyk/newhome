@@ -86,6 +86,22 @@ test("세율을 소수점 둘째 자리까지 순차 입력할 수 있다", asyn
   ).not.toContainText("취득세율이 입력되지 않아");
 });
 
+test("농어촌특별세를 선택한 과세표준의 세율로 계산한다", async ({ page }) => {
+  await page
+    .locator("details.section-card:has(#acquisitionRate) > summary")
+    .click();
+
+  await page.getByRole("radio", { name: "세율로 계산" }).check();
+  await page
+    .getByLabel("농어촌특별세 계산 기준")
+    .selectOption("contract");
+  await page.getByLabel("농어촌특별세율").fill("0.2");
+
+  await expect(
+    page.locator(".mini-results").filter({ hasText: "농어촌특별세" }),
+  ).toContainText("734,580원");
+});
+
 test("전체 초기화 전에 확인하고 취소 또는 승인할 수 있다", async ({ page }) => {
   const optionCost = page.getByLabel("유상 옵션비");
   await optionCost.fill("1230000");
