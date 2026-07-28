@@ -1,5 +1,6 @@
 import {
   type FloorCategory,
+  getApartmentExtensionCost,
   getApartmentPreset,
   type HousingType,
 } from "../data/apartmentPresets.ts";
@@ -76,6 +77,7 @@ export interface CalculationResult {
   loanPaidIntermediate: number;
   unpaidIntermediate: number;
   scheduledIntermediateTotal: number;
+  scheduledBalanceAmount: number;
   scheduledPaymentTotal: number;
   interimLoanRepaymentPrincipal: number;
   acquisitionTaxBefore: number;
@@ -207,7 +209,7 @@ export const EXAMPLE_INPUTS: CalculatorInputs = {
   floorCategory: "기준층",
   contractMode: "itemized",
   salePrice: examplePreset.salePrice,
-  extensionCost: 8_290_000,
+  extensionCost: getApartmentExtensionCost("59A"),
   optionCost: 0,
   otherContractCost: 0,
   directContractTotal: 367_290_000,
@@ -266,6 +268,7 @@ export function applyApartmentPreset(
   floorCategory: FloorCategory,
 ): CalculatorInputs {
   const preset = getApartmentPreset(housingType, floorCategory);
+  const extensionCost = getApartmentExtensionCost(housingType);
   const interimPayments = createInterimPayments(
     preset.intermediatePayment,
     preset.intermediatePaymentCount,
@@ -282,9 +285,10 @@ export function applyApartmentPreset(
       floorCategory,
       contractMode: "itemized",
       salePrice: preset.salePrice,
+      extensionCost,
       directContractTotal: sum([
         preset.salePrice,
-        inputs.extensionCost,
+        extensionCost,
         inputs.optionCost,
         inputs.otherContractCost,
       ]),
@@ -400,11 +404,28 @@ export function calculate(inputs: CalculatorInputs): CalculationResult {
     contractTotal - paidToDeveloperTotal,
     0,
   );
+  // 직접 입력 모드에서는 숨겨진 프리셋 잔금을 사용하지 않고 현재 입력값으로 잔금을 다시 산출한다.
+  const manualSchedulePrice =
+    inputs.contractMode === "direct"
+      ? contractTotal
+      : safeWon(inputs.salePrice);
+  const scheduledBalanceAmount =
+    inputs.priceInputMode === "manual"
+      ? Math.max(
+          manualSchedulePrice -
+            sum([
+              inputs.contractFirstPayment,
+              inputs.contractSecondPayment,
+              scheduledIntermediateTotal,
+            ]),
+          0,
+        )
+      : safeWon(inputs.scheduledBalance);
   const scheduledPaymentTotal = sum([
     inputs.contractFirstPayment,
     inputs.contractSecondPayment,
     scheduledIntermediateTotal,
-    inputs.scheduledBalance,
+    scheduledBalanceAmount,
   ]);
 
   // 세율은 basis point(1% = 100) 정수로 보관해 원 단위 계산의 부동소수점 오차를 피한다.
@@ -473,8 +494,10 @@ export function calculate(inputs: CalculatorInputs): CalculationResult {
   const otherEntry = Math.max(entryTotal - movingAndWork - appliancesAndFurniture, 0);
 
   const warnings: string[] = [];
-  if (paidTotal > contractTotal) {
-    warnings.push("현재까지 납부한 금액이 총 계약금액보다 큽니다.");
+  if (paidToDeveloperTotal > contractTotal) {
+    warnings.push(
+      "현재까지 시행사에 납부된 금액(중도금 대출 포함)이 총 계약금액보다 큽니다.",
+    );
   }
   if (
     (inputs.priceInputMode === "preset" || inputs.contractMode === "itemized") &&
@@ -500,6 +523,7 @@ export function calculate(inputs: CalculatorInputs): CalculationResult {
     loanPaidIntermediate,
     unpaidIntermediate,
     scheduledIntermediateTotal,
+    scheduledBalanceAmount,
     scheduledPaymentTotal,
     interimLoanRepaymentPrincipal,
     acquisitionTaxBefore,

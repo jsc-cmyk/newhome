@@ -77,6 +77,18 @@ test("납부액이 계약금액보다 크면 잔금은 0원이고 경고한다",
   assert.match(result.warnings.join(" "), /총 계약금액보다 큽니다/);
 });
 
+test("중도금 대출을 포함한 시행사 납부액이 계약금액보다 크면 경고한다", () => {
+  const input = copy(EXAMPLE_INPUTS);
+  input.priceInputMode = "manual";
+  input.contractMode = "direct";
+  input.directContractTotal = 200_000_000;
+
+  const result = calculate(input);
+  assert.ok(result.paidTotal < result.contractTotal);
+  assert.ok(result.paidToDeveloperTotal > result.contractTotal);
+  assert.match(result.warnings.join(" "), /중도금 대출 포함/);
+});
+
 test("빈 입력값은 모두 0원으로 처리한다", () => {
   const result = calculate(copy(EMPTY_INPUTS));
   assert.equal(result.contractTotal, 0);

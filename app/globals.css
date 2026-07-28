@@ -97,6 +97,9 @@ h1 { font-size:clamp(36px,5vw,64px); letter-spacing:-.05em; line-height:1.08; ma
 .cash-hero span { color:#b9c6db; font-size:13px; }
 .cash-hero strong { display:block; font-size:clamp(25px,3vw,36px); margin:12px 0 5px; letter-spacing:-.04em; }
 .cash-hero small { color:#aebcd2; }
+.result-guidance { margin:-8px 0 20px; padding:14px 15px; border:1px solid #bfdbfe; border-radius:11px; background:#eff6ff; color:#1e3a8a; }
+.result-guidance strong { font-size:13px; }
+.result-guidance p { margin:7px 0 0; font-size:12px; line-height:1.5; }
 .surplus { background:#ecfdf5; color:#047857; padding:12px; border-radius:10px; font-size:13px; display:flex; justify-content:space-between; }
 .chart { margin:24px 0; }
 .chart-bar { height:14px; border-radius:20px; overflow:hidden; display:flex; background:#e5e7eb; }

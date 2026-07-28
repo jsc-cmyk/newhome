@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   APARTMENT_PRICE_PRESETS,
   FLOOR_CATEGORIES,
+  getApartmentExtensionCost,
   getApartmentPreset,
   getBaselinePriceDifference,
   getFloorCategories,
@@ -59,7 +60,7 @@ test("예시값 불러오기는 선택한 주택형과 층의 공고 데이터�
 
   assert.equal(example.priceInputMode, "preset");
   assert.equal(example.salePrice, 396_000_000);
-  assert.equal(example.extensionCost, 8_290_000);
+  assert.equal(example.extensionCost, 8_440_000);
   assert.equal(example.paidDeposit, 39_600_000);
   assert.equal(example.scheduledBalance, 118_800_000);
   assert.equal(example.interimPayments.length, 6);
@@ -68,7 +69,38 @@ test("예시값 불러오기는 선택한 주택형과 층의 공고 데이터�
       (payment) => payment.amount === 39_600_000 && payment.status === "loan",
     ),
   );
-  assert.equal(calculate(example).contractTotal, 404_290_000);
+  assert.equal(calculate(example).contractTotal, 404_440_000);
+});
+
+test("주택형별 공식 발코니 확장비를 제공한다", () => {
+  assert.deepEqual(
+    Object.fromEntries(
+      HOUSING_TYPES.map((housingType) => [
+        housingType,
+        getApartmentExtensionCost(housingType),
+      ]),
+    ),
+    {
+      "59A": 8_290_000,
+      "59B": 8_790_000,
+      "84A": 10_290_000,
+      "84B": 8_440_000,
+    },
+  );
+});
+
+test("프리셋 변경 시 해당 주택형의 공식 확장비를 적용한다", () => {
+  for (const housingType of HOUSING_TYPES) {
+    const selected = applyApartmentPreset(
+      copy(EXAMPLE_INPUTS),
+      housingType,
+      "기준층",
+    );
+    assert.equal(
+      selected.extensionCost,
+      getApartmentExtensionCost(housingType),
+    );
+  }
 });
 
 test("59A 4층은 기준층보다 11,000,000원 저렴하다", () => {
@@ -98,6 +130,18 @@ test("직접 입력 방식에서도 기존 계산식을 사용한다", () => {
   assert.equal(result.contractTotal, 100_000_000);
   assert.equal(result.remainingBalance, 90_000_000);
   assert.equal(result.cashNeeded, 90_000_000);
+});
+
+test("직접 입력 방식은 이전 프리셋 잔금을 무시하고 현재 입력으로 잔금을 계산한다", () => {
+  const input = copy(EXAMPLE_INPUTS);
+  input.priceInputMode = "manual";
+  input.contractMode = "itemized";
+  input.salePrice = 400_000_000;
+  input.scheduledBalance = 1;
+
+  const result = calculate(input);
+  assert.equal(result.scheduledBalanceAmount, 148_700_000);
+  assert.equal(result.scheduledPaymentTotal, 400_000_000);
 });
 
 test("모든 주택형에서 공고문의 층 구분이 정상적으로 제공된다", () => {
