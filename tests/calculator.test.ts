@@ -14,7 +14,9 @@ test("기본 예시값을 계산한다", () => {
   const result = calculate(copy(EXAMPLE_INPUTS));
   assert.equal(result.contractTotal, 367_290_000);
   assert.equal(result.paidTotal, 35_900_000);
-  assert.equal(result.remainingBalance, 331_390_000);
+  assert.equal(result.paidToDeveloperTotal, 251_300_000);
+  assert.equal(result.remainingBalance, 115_990_000);
+  assert.equal(result.interimLoanRepaymentPrincipal, 215_400_000);
   assert.equal(result.cashNeeded, 331_390_000);
   assert.equal(result.reserveAmount, 16_569_500);
   assert.equal(result.recommendedCash, 347_959_500);
