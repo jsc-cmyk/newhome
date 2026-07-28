@@ -54,6 +54,7 @@ export default function Home() {
   const [inputs, setInputs] = useState<CalculatorInputs>(() => cloneInputs(EXAMPLE_INPUTS));
   const [ready, setReady] = useState(false);
   const [toast, setToast] = useState("");
+  const [installmentOpen, setInstallmentOpen] = useState(false);
   const result = useMemo(() => calculate(inputs), [inputs]);
   const selectedPreset = useMemo(
     () => getApartmentPreset(inputs.housingType, inputs.floorCategory),
@@ -339,50 +340,73 @@ export default function Home() {
             </div>
 
             <div className="installment-section">
-              <div className="installment-heading">
-                <div>
-                  <h3>중도금 납부 상태</h3>
-                  <p>각 회차의 금액과 납부 방식을 선택하세요.</p>
-                </div>
-                <strong>{formatWon(result.scheduledIntermediateTotal)}</strong>
-              </div>
-              <div className="installment-list">
-                {inputs.interimPayments.map((payment, index) => (
-                  <div className="installment-row" key={index}>
-                    <span className="installment-number">{index + 1}회</span>
-                    <MoneyInput
-                      id={`interim-payment-${index}`}
-                      label={`${index + 1}회 중도금`}
-                      value={payment.amount}
-                      onChange={(amount) =>
-                        updateInterimPayment(index, { amount })
-                      }
-                    />
-                    <label htmlFor={`interim-status-${index}`}>
-                      납부 상태
-                      <select
-                        id={`interim-status-${index}`}
-                        value={payment.status}
-                        onChange={(event) =>
-                          updateInterimPayment(index, {
-                            status: event.target.value as InterimPaymentStatus,
-                          })
-                        }
-                      >
-                        <option value="unpaid">미납</option>
-                        <option value="self">본인 자금 납부</option>
-                        <option value="loan">중도금 대출 납부</option>
-                      </select>
-                    </label>
+              <button
+                type="button"
+                className="installment-toggle"
+                aria-expanded={installmentOpen}
+                aria-controls="interim-payment-panel"
+                onClick={() => setInstallmentOpen((open) => !open)}
+              >
+                <h3>중도금 납부 상태</h3>
+                <svg
+                  className="installment-arrow"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path d="m6 9 6 6 6-6" />
+                </svg>
+              </button>
+              <div
+                id="interim-payment-panel"
+                className={`installment-accordion-panel ${installmentOpen ? "open" : ""}`}
+                aria-hidden={!installmentOpen}
+                inert={!installmentOpen}
+              >
+                <div className="installment-accordion-inner">
+                  <div className="installment-accordion-content">
+                    <p className="installment-help">
+                      각 회차의 금액과 납부 방식을 선택하세요.
+                    </p>
+                    <div className="installment-list">
+                      {inputs.interimPayments.map((payment, index) => (
+                        <div className="installment-row" key={index}>
+                          <span className="installment-number">{index + 1}회</span>
+                          <MoneyInput
+                            id={`interim-payment-${index}`}
+                            label={`${index + 1}회 중도금`}
+                            value={payment.amount}
+                            onChange={(amount) =>
+                              updateInterimPayment(index, { amount })
+                            }
+                          />
+                          <label htmlFor={`interim-status-${index}`}>
+                            납부 상태
+                            <select
+                              id={`interim-status-${index}`}
+                              value={payment.status}
+                              onChange={(event) =>
+                                updateInterimPayment(index, {
+                                  status: event.target.value as InterimPaymentStatus,
+                                })
+                              }
+                            >
+                              <option value="unpaid">미납</option>
+                              <option value="self">본인 자금 납부</option>
+                              <option value="loan">중도금 대출 납부</option>
+                            </select>
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mini-results installment-totals">
+                      <ResultLine label="계약금 총액" value={inputs.contractFirstPayment + inputs.contractSecondPayment} />
+                      <ResultLine label="본인 자금 납부 중도금" value={result.selfPaidIntermediate} />
+                      <ResultLine label="중도금 대출 납부액" value={result.loanPaidIntermediate} />
+                      <ResultLine label="미납 중도금" value={result.unpaidIntermediate} />
+                      <ResultLine label="납부일정 합계" value={result.scheduledPaymentTotal} strong />
+                    </div>
                   </div>
-                ))}
-              </div>
-              <div className="mini-results installment-totals">
-                <ResultLine label="계약금 총액" value={inputs.contractFirstPayment + inputs.contractSecondPayment} />
-                <ResultLine label="본인 자금 납부 중도금" value={result.selfPaidIntermediate} />
-                <ResultLine label="중도금 대출 납부액" value={result.loanPaidIntermediate} />
-                <ResultLine label="미납 중도금" value={result.unpaidIntermediate} />
-                <ResultLine label="납부일정 합계" value={result.scheduledPaymentTotal} strong />
+                </div>
               </div>
             </div>
           </Details>

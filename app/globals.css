@@ -61,10 +61,19 @@ h1 { font-size:clamp(36px,5vw,64px); letter-spacing:-.05em; line-height:1.08; ma
 .preset-summary strong { display:block; font-size:14px; line-height:1.4; word-break:keep-all; }
 .preset-notice { margin:16px 0 0; color:#536078; font-size:12px; line-height:1.65; }
 .installment-section { border-top:1px dashed var(--line); margin-top:24px; padding-top:24px; }
-.installment-heading { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; margin-bottom:14px; }
-.installment-heading h3 { margin:0; font-size:16px; }
-.installment-heading p { margin:6px 0 0; color:var(--muted); font-size:12px; }
-.installment-heading>strong { color:var(--blue); white-space:nowrap; }
+.installment-toggle { display:flex; align-items:center; justify-content:space-between; width:100%; padding:0; border:0; background:transparent; color:var(--ink); cursor:pointer; text-align:left; }
+.installment-toggle h3 { margin:0; font-size:16px; }
+.installment-toggle:hover h3,.installment-toggle:focus-visible h3 { color:var(--blue); }
+.installment-toggle:focus-visible { outline:3px solid rgba(47,91,234,.22); outline-offset:8px; border-radius:4px; }
+.installment-arrow { width:24px; height:24px; flex:0 0 24px; transition:transform .32s ease; }
+.installment-arrow path { fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+.installment-toggle[aria-expanded="true"] .installment-arrow { transform:rotate(180deg); }
+.installment-accordion-panel { display:grid; grid-template-rows:0fr; transition:grid-template-rows .38s cubic-bezier(.4,0,.2,1); }
+.installment-accordion-panel.open { grid-template-rows:1fr; }
+.installment-accordion-inner { min-height:0; overflow:hidden; visibility:hidden; opacity:0; transform:translateY(-6px); transition:opacity .24s ease,transform .32s ease,visibility 0s linear .38s; }
+.installment-accordion-panel.open .installment-accordion-inner { visibility:visible; opacity:1; transform:translateY(0); transition:opacity .28s ease .07s,transform .32s ease,visibility 0s; }
+.installment-accordion-content { padding-top:16px; }
+.installment-help { margin:0 0 14px; color:var(--muted); font-size:12px; }
 .installment-list { display:grid; gap:10px; }
 .installment-row { display:grid; grid-template-columns:48px minmax(0,1fr) minmax(170px,.72fr); gap:12px; align-items:center; padding:12px; border:1px solid var(--line); border-radius:12px; background:#fafafa; }
 .installment-number { display:flex; align-items:center; justify-content:center; width:42px; height:42px; border-radius:50%; background:#eaf0ff; color:var(--blue); font-size:13px; font-weight:900; }
