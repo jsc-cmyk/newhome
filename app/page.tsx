@@ -600,8 +600,73 @@ function Details({ title, badge, open = false, children }: { title: string; badg
   return <details className="section-card" open={open}><summary><span>{title}</span><b>{badge}</b></summary><div className="section-content">{children}</div></details>;
 }
 
+const formatRateInputValue = (value: number) =>
+  value
+    ? (value / 100).toFixed(2).replace(/\.?0+$/, "")
+    : "";
+
+const sanitizeRateInput = (rawValue: string) => {
+  const cleaned = rawValue.replace(/[^\d.]/g, "");
+  if (!cleaned) return "";
+
+  const dotIndex = cleaned.indexOf(".");
+  const integerDigits = (dotIndex >= 0 ? cleaned.slice(0, dotIndex) : cleaned)
+    .replace(/\D/g, "");
+  const integerPart = integerDigits.replace(/^0+(?=\d)/, "") || "0";
+  if (dotIndex < 0) return integerPart;
+
+  const decimalPart = cleaned
+    .slice(dotIndex + 1)
+    .replace(/\./g, "")
+    .slice(0, 2);
+  return `${integerPart}.${decimalPart}`;
+};
+
 function RateInput({ id, label, value, onChange }: { id: string; label: string; value: number; onChange: (value: number) => void }) {
-  return <div className="field"><label htmlFor={id}>{label}</label><div className="money-wrap"><input id={id} inputMode="decimal" value={value ? (value / 100).toString() : ""} placeholder="0" onChange={(e) => onChange(Math.max(Math.round((Number(e.target.value.replace(/[^\d.]/g, "")) || 0) * 100), 0))} /><span>%</span></div><small>소수점 둘째 자리까지 입력 가능</small></div>;
+  const [draft, setDraft] = useState(() => ({
+    value,
+    text: formatRateInputValue(value),
+  }));
+  const displayValue =
+    draft.value === value ? draft.text : formatRateInputValue(value);
+
+  const handleChange = (rawValue: string) => {
+    const nextValue = sanitizeRateInput(rawValue);
+
+    if (!nextValue) {
+      setDraft({ value: 0, text: "" });
+      onChange(0);
+    } else if (!nextValue.endsWith(".")) {
+      const nextBasisPoints = Math.max(
+        Math.round(Number(nextValue) * 100),
+        0,
+      );
+      setDraft({ value: nextBasisPoints, text: nextValue });
+      onChange(nextBasisPoints);
+    } else {
+      setDraft({ value, text: nextValue });
+    }
+  };
+
+  return (
+    <div className="field">
+      <label htmlFor={id}>{label}</label>
+      <div className="money-wrap">
+        <input
+          id={id}
+          inputMode="decimal"
+          value={displayValue}
+          placeholder="0"
+          onChange={(event) => handleChange(event.target.value)}
+          onBlur={() =>
+            setDraft({ value, text: formatRateInputValue(value) })
+          }
+        />
+        <span>%</span>
+      </div>
+      <small>소수점 둘째 자리까지 입력 가능</small>
+    </div>
+  );
 }
 
 function ResultLine({ label, value, strong = false }: { label: string; value: number; strong?: boolean }) {

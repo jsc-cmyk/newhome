@@ -71,6 +71,21 @@ test("잔금대출을 분양가와 확장비 합계의 비율로 입력한다", 
   ).not.toContainText("잔금대출 예정금액이 입력되지 않아");
 });
 
+test("세율을 소수점 둘째 자리까지 순차 입력할 수 있다", async ({ page }) => {
+  await page
+    .locator("details.section-card:has(#acquisitionRate) > summary")
+    .click();
+  const acquisitionRate = page.getByLabel("취득세율");
+
+  await acquisitionRate.fill("");
+  await acquisitionRate.pressSequentially("1.25");
+
+  await expect(acquisitionRate).toHaveValue("1.25");
+  await expect(
+    page.getByRole("note", { name: "미입력 항목 안내" }),
+  ).not.toContainText("취득세율이 입력되지 않아");
+});
+
 test("전체 초기화 전에 확인하고 취소 또는 승인할 수 있다", async ({ page }) => {
   const optionCost = page.getByLabel("유상 옵션비");
   await optionCost.fill("1230000");
