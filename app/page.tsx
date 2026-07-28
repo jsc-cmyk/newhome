@@ -3,16 +3,29 @@
 import { useEffect, useMemo, useState } from "react";
 import { MoneyInput } from "./components/MoneyInput";
 import {
+  APARTMENT_PRESET_INFO,
+  getApartmentPreset,
+  getFloorCategories,
+  HOUSING_TYPES,
+  type FloorCategory,
+  type HousingType,
+} from "./data/apartmentPresets";
+import {
+  applyApartmentPreset,
   calculate,
   CalculatorInputs,
+  createExampleInputs,
   EMPTY_INPUTS,
   ENTRY_COST_LABELS,
   EntryCostKey,
   EXAMPLE_INPUTS,
   formatKoreanWon,
   formatWon,
+  type InterimPaymentStatus,
+  normalizeCalculatorInputs,
   REGISTRATION_COST_LABELS,
   ReservePreset,
+  withInterimPaymentAggregates,
 } from "./lib/calculator";
 
 const STORAGE_KEY = "apartment-move-in-calculator-v1";
@@ -29,7 +42,7 @@ const summaryCards = [
 ] as const;
 
 const chartMeta = [
-  ["balance", "잔금", "#1d4ed8"],
+  ["balance", "잔금·중도금대출 상환", "#1d4ed8"],
   ["tax", "세금", "#7c3aed"],
   ["registration", "등기·대출", "#0f766e"],
   ["movingAndWork", "이사·시공", "#ea580c"],
@@ -42,12 +55,25 @@ export default function Home() {
   const [ready, setReady] = useState(false);
   const [toast, setToast] = useState("");
   const result = useMemo(() => calculate(inputs), [inputs]);
+  const selectedPreset = useMemo(
+    () => getApartmentPreset(inputs.housingType, inputs.floorCategory),
+    [inputs.floorCategory, inputs.housingType],
+  );
+  const availableFloors = useMemo(
+    () => getFloorCategories(inputs.housingType),
+    [inputs.housingType],
+  );
+  const baselineSalePrice = useMemo(
+    () => getApartmentPreset(inputs.housingType, "기준층").salePrice,
+    [inputs.housingType],
+  );
+  const priceDifference = selectedPreset.salePrice - baselineSalePrice;
 
   useEffect(() => {
     queueMicrotask(() => {
       try {
         const saved = localStorage.getItem(STORAGE_KEY);
-        if (saved) setInputs(JSON.parse(saved) as CalculatorInputs);
+        if (saved) setInputs(normalizeCalculatorInputs(JSON.parse(saved)));
       } catch {
         localStorage.removeItem(STORAGE_KEY);
       } finally {
@@ -62,6 +88,31 @@ export default function Home() {
 
   const set = <K extends keyof CalculatorInputs>(key: K, value: CalculatorInputs[K]) =>
     setInputs((current) => ({ ...current, [key]: value }));
+  const confirmPresetOverwrite = () =>
+    !ready ||
+    window.confirm(
+      "예시 단지를 다시 선택하면 분양가격과 계약금·중도금·잔금 일정의 수정값이 덮어써집니다. 계속할까요?",
+    );
+  const selectPreset = (
+    housingType: HousingType,
+    floorCategory: FloorCategory,
+  ) => {
+    if (!confirmPresetOverwrite()) return;
+    setInputs((current) =>
+      applyApartmentPreset(current, housingType, floorCategory),
+    );
+  };
+  const updateInterimPayment = (
+    index: number,
+    patch: Partial<CalculatorInputs["interimPayments"][number]>,
+  ) => {
+    setInputs((current) => {
+      const interimPayments = current.interimPayments.map((payment, paymentIndex) =>
+        paymentIndex === index ? { ...payment, ...patch } : payment,
+      );
+      return withInterimPaymentAggregates(current, interimPayments);
+    });
+  };
   const notify = (message: string) => {
     setToast(message);
     window.setTimeout(() => setToast(""), 2200);
@@ -70,7 +121,9 @@ export default function Home() {
   const rows = [
     ["총 계약금액", result.contractTotal],
     ["현재까지 납부액", result.paidTotal],
+    ["시행사 납부액(대출 포함)", result.paidToDeveloperTotal],
     ["남은 분양대금", result.remainingBalance],
+    ["중도금 대출 상환 예정 원금", result.interimLoanRepaymentPrincipal],
     ["중도금 대출 후불이자", inputs.deferredInterest],
     ["취득 관련 세금", result.acquisitionTaxTotal],
     ["등기 및 대출비용", result.registrationTotal],
@@ -98,6 +151,18 @@ export default function Home() {
     anchor.click();
     URL.revokeObjectURL(url);
   };
+  const loadExample = () => {
+    if (!confirmPresetOverwrite()) return;
+    setInputs(createExampleInputs(inputs.housingType, inputs.floorCategory));
+    notify(`${inputs.housingType} ${inputs.floorCategory} 예시값을 불러왔습니다.`);
+  };
+
+  const priceDifferenceLabel =
+    priceDifference === 0
+      ? "기준층과 동일"
+      : `${formatWon(Math.abs(priceDifference))} ${
+          priceDifference > 0 ? "비쌈" : "저렴"
+        }`;
 
   return (
     <main>
@@ -109,7 +174,7 @@ export default function Home() {
         </div>
         <div className="hero-actions no-print">
           <button className="button ghost" onClick={() => { setInputs(cloneInputs(EMPTY_INPUTS)); localStorage.removeItem(STORAGE_KEY); }}>전체 초기화</button>
-          <button className="button light" onClick={() => setInputs(cloneInputs(EXAMPLE_INPUTS))}>예시값 불러오기</button>
+          <button className="button light" onClick={loadExample}>예시값 불러오기</button>
         </div>
       </header>
 
@@ -133,12 +198,130 @@ export default function Home() {
       <div className="workspace">
         <section className="form-stack">
           <Details title="분양대금" badge={formatWon(result.contractTotal)} open>
-            <div className="mode-switch" role="radiogroup" aria-label="계약금액 입력 방식">
-              <label><input type="radio" checked={inputs.contractMode === "itemized"} onChange={() => set("contractMode", "itemized")} /> 항목별 입력</label>
-              <label><input type="radio" checked={inputs.contractMode === "direct"} onChange={() => set("contractMode", "direct")} /> 총액 직접 입력</label>
+            <div className="mode-switch" role="radiogroup" aria-label="분양가격 입력 방식">
+              <label>
+                <input
+                  type="radio"
+                  checked={inputs.priceInputMode === "preset"}
+                  onChange={() =>
+                    selectPreset(inputs.housingType, inputs.floorCategory)
+                  }
+                />{" "}
+                예시 단지에서 선택
+              </label>
+              <label>
+                <input
+                  type="radio"
+                  checked={inputs.priceInputMode === "manual"}
+                  onChange={() => set("priceInputMode", "manual")}
+                />{" "}
+                직접 입력
+              </label>
             </div>
-            <p className="section-help">두 방식 중 선택한 한 가지만 계산에 사용되어 중복 합산되지 않습니다.</p>
-            {inputs.contractMode === "itemized" ? (
+
+            {inputs.priceInputMode === "preset" && (
+              <div className="preset-panel">
+                <div className="select-grid">
+                  <label htmlFor="housingType">
+                    주택형
+                    <select
+                      id="housingType"
+                      value={inputs.housingType}
+                      onChange={(event) => {
+                        const housingType = event.target.value as HousingType;
+                        const floors = getFloorCategories(housingType);
+                        const floorCategory = floors.includes(inputs.floorCategory)
+                          ? inputs.floorCategory
+                          : (floors[0] ?? "기준층");
+                        selectPreset(housingType, floorCategory);
+                      }}
+                    >
+                      {HOUSING_TYPES.map((housingType) => (
+                        <option key={housingType} value={housingType}>
+                          {housingType}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label htmlFor="floorCategory">
+                    층 구분
+                    <select
+                      id="floorCategory"
+                      value={inputs.floorCategory}
+                      onChange={(event) =>
+                        selectPreset(
+                          inputs.housingType,
+                          event.target.value as FloorCategory,
+                        )
+                      }
+                    >
+                      {availableFloors.map((floorCategory) => (
+                        <option key={floorCategory} value={floorCategory}>
+                          {floorCategory}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+
+                <div className="preset-summary" aria-label="선택한 분양가격과 납부일정">
+                  <div>
+                    <span>선택</span>
+                    <strong>{inputs.housingType} · {inputs.floorCategory}</strong>
+                  </div>
+                  <div>
+                    <span>분양가격</span>
+                    <strong>{formatWon(selectedPreset.salePrice)}</strong>
+                  </div>
+                  <div>
+                    <span>{inputs.housingType} 기준층 대비</span>
+                    <strong>{priceDifferenceLabel}</strong>
+                  </div>
+                  <div>
+                    <span>계약금</span>
+                    <strong>
+                      {formatWon(
+                        selectedPreset.contractFirstPayment +
+                          selectedPreset.contractSecondPayment,
+                      )}
+                    </strong>
+                  </div>
+                  <div>
+                    <span>중도금 총액</span>
+                    <strong>
+                      {formatWon(
+                        selectedPreset.intermediatePayment *
+                          selectedPreset.intermediatePaymentCount,
+                      )}
+                    </strong>
+                  </div>
+                  <div>
+                    <span>잔금</span>
+                    <strong>{formatWon(selectedPreset.balance)}</strong>
+                  </div>
+                </div>
+
+                <p className="preset-notice">
+                  예시 분양가격은 2023년 9월 15일 공고된{" "}
+                  {APARTMENT_PRESET_INFO.complexName} 입주자모집공고를 기준으로
+                  입력되었습니다. 실제 계약금액은 공급계약서, 발코니
+                  확장계약서 및 유상옵션 계약서를 기준으로 확인하시기
+                  바랍니다.
+                </p>
+              </div>
+            )}
+
+            {inputs.priceInputMode === "manual" && (
+              <>
+                <div className="mode-switch compact" role="radiogroup" aria-label="계약금액 직접 입력 방식">
+                  <label><input type="radio" checked={inputs.contractMode === "itemized"} onChange={() => set("contractMode", "itemized")} /> 항목별 입력</label>
+                  <label><input type="radio" checked={inputs.contractMode === "direct"} onChange={() => set("contractMode", "direct")} /> 총액 직접 입력</label>
+                </div>
+                <p className="section-help">두 방식 중 선택한 한 가지만 계산에 사용되어 중복 합산되지 않습니다.</p>
+              </>
+            )}
+
+            {inputs.priceInputMode === "preset" || inputs.contractMode === "itemized" ? (
               <div className="field-grid">
                 <MoneyInput id="salePrice" label="분양가" value={inputs.salePrice} onChange={(v) => set("salePrice", v)} />
                 <MoneyInput id="extensionCost" label="발코니 확장비" value={inputs.extensionCost} onChange={(v) => set("extensionCost", v)} />
@@ -146,15 +329,70 @@ export default function Home() {
                 <MoneyInput id="otherContractCost" label="기타 계약금액" value={inputs.otherContractCost} onChange={(v) => set("otherContractCost", v)} />
               </div>
             ) : <MoneyInput id="directContractTotal" label="총 계약금액" value={inputs.directContractTotal} onChange={(v) => set("directContractTotal", v)} />}
+
             <div className="field-grid divided">
+              <MoneyInput id="contractFirstPayment" label="계약금 1차" value={inputs.contractFirstPayment} onChange={(v) => set("contractFirstPayment", v)} />
+              <MoneyInput id="contractSecondPayment" label="계약금 2차" value={inputs.contractSecondPayment} onChange={(v) => set("contractSecondPayment", v)} />
               <MoneyInput id="paidDeposit" label="현재까지 납부한 계약금" value={inputs.paidDeposit} onChange={(v) => set("paidDeposit", v)} />
-              <MoneyInput id="paidInterim" label="직접 납부한 중도금" value={inputs.paidInterim} onChange={(v) => set("paidInterim", v)} hint="대출로 납부된 중도금은 제외하세요." />
+              <MoneyInput id="scheduledBalance" label="예정 잔금" value={inputs.scheduledBalance} onChange={(v) => set("scheduledBalance", v)} />
+            </div>
+
+            <div className="installment-section">
+              <div className="installment-heading">
+                <div>
+                  <h3>중도금 납부 상태</h3>
+                  <p>각 회차의 금액과 납부 방식을 선택하세요.</p>
+                </div>
+                <strong>{formatWon(result.scheduledIntermediateTotal)}</strong>
+              </div>
+              <div className="installment-list">
+                {inputs.interimPayments.map((payment, index) => (
+                  <div className="installment-row" key={index}>
+                    <span className="installment-number">{index + 1}회</span>
+                    <MoneyInput
+                      id={`interim-payment-${index}`}
+                      label={`${index + 1}회 중도금`}
+                      value={payment.amount}
+                      onChange={(amount) =>
+                        updateInterimPayment(index, { amount })
+                      }
+                    />
+                    <label htmlFor={`interim-status-${index}`}>
+                      납부 상태
+                      <select
+                        id={`interim-status-${index}`}
+                        value={payment.status}
+                        onChange={(event) =>
+                          updateInterimPayment(index, {
+                            status: event.target.value as InterimPaymentStatus,
+                          })
+                        }
+                      >
+                        <option value="unpaid">미납</option>
+                        <option value="self">본인 자금 납부</option>
+                        <option value="loan">중도금 대출 납부</option>
+                      </select>
+                    </label>
+                  </div>
+                ))}
+              </div>
+              <div className="mini-results installment-totals">
+                <ResultLine label="계약금 총액" value={inputs.contractFirstPayment + inputs.contractSecondPayment} />
+                <ResultLine label="본인 자금 납부 중도금" value={result.selfPaidIntermediate} />
+                <ResultLine label="중도금 대출 납부액" value={result.loanPaidIntermediate} />
+                <ResultLine label="미납 중도금" value={result.unpaidIntermediate} />
+                <ResultLine label="납부일정 합계" value={result.scheduledPaymentTotal} strong />
+              </div>
             </div>
           </Details>
 
           <Details title="대출" badge={formatWon(inputs.finalLoan)} open>
+            <div className="mini-results loan-summary">
+              <ResultLine label="중도금 대출로 납부한 금액" value={result.loanPaidIntermediate} />
+              <ResultLine label="중도금 대출 상환 예정 원금" value={result.interimLoanRepaymentPrincipal} strong />
+            </div>
+            <p className="section-help">중도금 대출 원금은 시행사에 납부된 분양대금에서 제외하고, 입주 시 상환하거나 잔금대출로 전환할 금액으로 한 번만 반영합니다.</p>
             <div className="field-grid">
-              <MoneyInput id="interimLoan" label="중도금 대출 원금" value={inputs.interimLoanPrincipal} onChange={(v) => set("interimLoanPrincipal", v)} hint="참고용 정보이며 총 필요금액에 다시 더하지 않습니다." />
               <MoneyInput id="deferredInterest" label="중도금 대출 후불이자" value={inputs.deferredInterest} onChange={(v) => set("deferredInterest", v)} />
               <MoneyInput id="finalLoan" label="잔금대출 예정금액" value={inputs.finalLoan} onChange={(v) => set("finalLoan", v)} />
             </div>
@@ -241,6 +479,8 @@ export default function Home() {
               {inputs.reservePreset === "custom" && <RateInput id="customReserve" label="직접 입력 예비비율" value={inputs.customReserveRateBps} onChange={(v) => set("customReserveRateBps", v)} />}
             </div>
             <div className="result-lines">
+              <ResultLine label="남은 분양대금" value={result.remainingBalance} />
+              <ResultLine label="중도금 대출 상환 예정 원금" value={result.interimLoanRepaymentPrincipal} />
               <ResultLine label="총 필요금액" value={result.totalRequired} />
               <ResultLine label="대출 충당금액" value={result.loanCoverage} />
               <ResultLine label="예비비" value={result.reserveAmount} />

@@ -1,5 +1,13 @@
+import {
+  type FloorCategory,
+  getApartmentPreset,
+  type HousingType,
+} from "../data/apartmentPresets.ts";
+
 export type ContractMode = "itemized" | "direct";
+export type PriceInputMode = "preset" | "manual";
 export type ReservePreset = 0 | 3 | 5 | 10 | "custom";
+export type InterimPaymentStatus = "unpaid" | "self" | "loan";
 
 export type EntryCostKey =
   | "managementDeposit"
@@ -21,16 +29,28 @@ export interface OptionalCost {
   amount: number;
 }
 
+export interface InterimPaymentInstallment {
+  amount: number;
+  status: InterimPaymentStatus;
+}
+
 export interface CalculatorInputs {
+  priceInputMode: PriceInputMode;
+  housingType: HousingType;
+  floorCategory: FloorCategory;
   contractMode: ContractMode;
   salePrice: number;
   extensionCost: number;
   optionCost: number;
   otherContractCost: number;
   directContractTotal: number;
+  contractFirstPayment: number;
+  contractSecondPayment: number;
+  scheduledBalance: number;
   paidDeposit: number;
   paidInterim: number;
   interimLoanPrincipal: number;
+  interimPayments: InterimPaymentInstallment[];
   deferredInterest: number;
   finalLoan: number;
   acquisitionTaxRateBps: number;
@@ -49,7 +69,14 @@ export interface CalculatorInputs {
 export interface CalculationResult {
   contractTotal: number;
   paidTotal: number;
+  paidToDeveloperTotal: number;
   remainingBalance: number;
+  selfPaidIntermediate: number;
+  loanPaidIntermediate: number;
+  unpaidIntermediate: number;
+  scheduledIntermediateTotal: number;
+  scheduledPaymentTotal: number;
+  interimLoanRepaymentPrincipal: number;
   acquisitionTaxBefore: number;
   acquisitionTaxReductionApplied: number;
   acquisitionTaxAfter: number;
@@ -88,6 +115,57 @@ const sum = (values: number[]) =>
 const percentageOf = (amount: number, rateBps: number) =>
   safeWon((safeWon(amount) * safeWon(rateBps)) / 10_000);
 
+export interface InterimPaymentSummary {
+  selfPaid: number;
+  loanPaid: number;
+  unpaid: number;
+  total: number;
+}
+
+export function createInterimPayments(
+  amount: number,
+  count: number,
+  status: InterimPaymentStatus = "unpaid",
+): InterimPaymentInstallment[] {
+  return Array.from({ length: Math.max(Math.trunc(count), 0) }, () => ({
+    amount: safeWon(amount),
+    status,
+  }));
+}
+
+export function summarizeInterimPayments(
+  payments: InterimPaymentInstallment[],
+): InterimPaymentSummary {
+  return payments.reduce<InterimPaymentSummary>(
+    (summary, payment) => {
+      const amount = safeWon(payment.amount);
+      summary.total = safeWon(summary.total + amount);
+      if (payment.status === "self") {
+        summary.selfPaid = safeWon(summary.selfPaid + amount);
+      } else if (payment.status === "loan") {
+        summary.loanPaid = safeWon(summary.loanPaid + amount);
+      } else {
+        summary.unpaid = safeWon(summary.unpaid + amount);
+      }
+      return summary;
+    },
+    { selfPaid: 0, loanPaid: 0, unpaid: 0, total: 0 },
+  );
+}
+
+export function withInterimPaymentAggregates(
+  inputs: CalculatorInputs,
+  interimPayments: InterimPaymentInstallment[],
+): CalculatorInputs {
+  const summary = summarizeInterimPayments(interimPayments);
+  return {
+    ...inputs,
+    interimPayments,
+    paidInterim: summary.selfPaid,
+    interimLoanPrincipal: summary.loanPaid,
+  };
+}
+
 export const ENTRY_COST_LABELS: Record<EntryCostKey, string> = {
   managementDeposit: "관리비예치금",
   advanceManagement: "선수관리비·기타 관리비",
@@ -115,16 +193,32 @@ export const REGISTRATION_COST_LABELS: Record<string, string> = {
   otherRegistration: "기타 등기·대출비용",
 };
 
+const examplePreset = getApartmentPreset("59A", "기준층");
+const exampleInterimPayments = createInterimPayments(
+  examplePreset.intermediatePayment,
+  examplePreset.intermediatePaymentCount,
+  "loan",
+);
+
 export const EXAMPLE_INPUTS: CalculatorInputs = {
+  priceInputMode: "preset",
+  housingType: "59A",
+  floorCategory: "기준층",
   contractMode: "itemized",
-  salePrice: 367_290_000,
-  extensionCost: 0,
+  salePrice: examplePreset.salePrice,
+  extensionCost: 8_290_000,
   optionCost: 0,
   otherContractCost: 0,
   directContractTotal: 367_290_000,
-  paidDeposit: 35_900_000,
+  contractFirstPayment: examplePreset.contractFirstPayment,
+  contractSecondPayment: examplePreset.contractSecondPayment,
+  scheduledBalance: examplePreset.balance,
+  paidDeposit:
+    examplePreset.contractFirstPayment + examplePreset.contractSecondPayment,
   paidInterim: 0,
-  interimLoanPrincipal: 0,
+  interimLoanPrincipal:
+    examplePreset.intermediatePayment * examplePreset.intermediatePaymentCount,
+  interimPayments: exampleInterimPayments,
   deferredInterest: 0,
   finalLoan: 0,
   acquisitionTaxRateBps: 0,
@@ -149,11 +243,123 @@ export const EXAMPLE_INPUTS: CalculatorInputs = {
 
 export const EMPTY_INPUTS: CalculatorInputs = {
   ...EXAMPLE_INPUTS,
+  priceInputMode: "manual",
   salePrice: 0,
+  extensionCost: 0,
   directContractTotal: 0,
+  contractFirstPayment: 0,
+  contractSecondPayment: 0,
+  scheduledBalance: 0,
   paidDeposit: 0,
+  paidInterim: 0,
+  interimLoanPrincipal: 0,
+  interimPayments: createInterimPayments(0, 6),
   reservePreset: 0,
 };
+
+export function applyApartmentPreset(
+  inputs: CalculatorInputs,
+  housingType: HousingType,
+  floorCategory: FloorCategory,
+): CalculatorInputs {
+  const preset = getApartmentPreset(housingType, floorCategory);
+  const interimPayments = createInterimPayments(
+    preset.intermediatePayment,
+    preset.intermediatePaymentCount,
+    "loan",
+  );
+  const contractDeposit =
+    preset.contractFirstPayment + preset.contractSecondPayment;
+
+  return withInterimPaymentAggregates(
+    {
+      ...inputs,
+      priceInputMode: "preset",
+      housingType,
+      floorCategory,
+      contractMode: "itemized",
+      salePrice: preset.salePrice,
+      directContractTotal: sum([
+        preset.salePrice,
+        inputs.extensionCost,
+        inputs.optionCost,
+        inputs.otherContractCost,
+      ]),
+      contractFirstPayment: preset.contractFirstPayment,
+      contractSecondPayment: preset.contractSecondPayment,
+      scheduledBalance: preset.balance,
+      paidDeposit: contractDeposit,
+    },
+    interimPayments,
+  );
+}
+
+/**
+ * 홈페이지의 "예시값 불러오기"에서 사용하는 입력값을 생성한다.
+ * 선택한 주택형·층의 공고 데이터와 별도 예시 확장비를 함께 적용하고,
+ * 중도금 6회는 전액 대출 납부 상태로 초기화한다.
+ */
+export function createExampleInputs(
+  housingType: HousingType = "59A",
+  floorCategory: FloorCategory = "기준층",
+): CalculatorInputs {
+  return applyApartmentPreset(
+    structuredClone(EXAMPLE_INPUTS),
+    housingType,
+    floorCategory,
+  );
+}
+
+export function normalizeCalculatorInputs(saved: unknown): CalculatorInputs {
+  if (!saved || typeof saved !== "object") {
+    return structuredClone(EXAMPLE_INPUTS);
+  }
+
+  const source = saved as Partial<CalculatorInputs>;
+  const merged: CalculatorInputs = {
+    ...structuredClone(EXAMPLE_INPUTS),
+    ...source,
+    priceInputMode: source.priceInputMode ?? "manual",
+    housingType: source.housingType ?? "59A",
+    floorCategory: source.floorCategory ?? "기준층",
+    registrationCosts: {
+      ...EXAMPLE_INPUTS.registrationCosts,
+      ...(source.registrationCosts ?? {}),
+    },
+    entryCosts: {
+      ...EXAMPLE_INPUTS.entryCosts,
+      ...(source.entryCosts ?? {}),
+    },
+    interimPayments: [],
+  };
+
+  if (Array.isArray(source.interimPayments)) {
+    merged.interimPayments = source.interimPayments.map((payment) => ({
+      amount: safeWon(payment.amount),
+      status:
+        payment.status === "self" || payment.status === "loan"
+          ? payment.status
+          : "unpaid",
+    }));
+    return withInterimPaymentAggregates(merged, merged.interimPayments);
+  }
+
+  const fallbackPayments = createInterimPayments(0, 6);
+  let paymentIndex = 0;
+  if (safeWon(source.paidInterim ?? 0) > 0) {
+    fallbackPayments[paymentIndex++] = {
+      amount: safeWon(source.paidInterim ?? 0),
+      status: "self",
+    };
+  }
+  if (safeWon(source.interimLoanPrincipal ?? 0) > 0) {
+    fallbackPayments[paymentIndex] = {
+      amount: safeWon(source.interimLoanPrincipal ?? 0),
+      status: "loan",
+    };
+  }
+  return withInterimPaymentAggregates(merged, fallbackPayments);
+}
 
 export function calculate(inputs: CalculatorInputs): CalculationResult {
   const contractTotal =
@@ -165,8 +371,33 @@ export function calculate(inputs: CalculatorInputs): CalculationResult {
           inputs.optionCost,
           inputs.otherContractCost,
         ]);
-  const paidTotal = sum([inputs.paidDeposit, inputs.paidInterim]);
-  const remainingBalance = Math.max(contractTotal - paidTotal, 0);
+  const interimSummary = summarizeInterimPayments(
+    Array.isArray(inputs.interimPayments) ? inputs.interimPayments : [],
+  );
+  const selfPaidIntermediate =
+    inputs.interimPayments.length > 0
+      ? interimSummary.selfPaid
+      : safeWon(inputs.paidInterim);
+  const loanPaidIntermediate =
+    inputs.interimPayments.length > 0
+      ? interimSummary.loanPaid
+      : safeWon(inputs.interimLoanPrincipal);
+  const unpaidIntermediate =
+    inputs.interimPayments.length > 0 ? interimSummary.unpaid : 0;
+  const scheduledIntermediateTotal =
+    inputs.interimPayments.length > 0 ? interimSummary.total : 0;
+  const paidTotal = sum([inputs.paidDeposit, selfPaidIntermediate]);
+  const paidToDeveloperTotal = sum([paidTotal, loanPaidIntermediate]);
+  const remainingBalance = Math.max(
+    contractTotal - paidToDeveloperTotal,
+    0,
+  );
+  const scheduledPaymentTotal = sum([
+    inputs.contractFirstPayment,
+    inputs.contractSecondPayment,
+    scheduledIntermediateTotal,
+    inputs.scheduledBalance,
+  ]);
 
   // 세율은 basis point(1% = 100) 정수로 보관해 원 단위 계산의 부동소수점 오차를 피한다.
   const acquisitionTaxBefore = percentageOf(
@@ -200,9 +431,11 @@ export function calculate(inputs: CalculatorInputs): CalculationResult {
   const ancillaryTotal = sum([registrationTotal, entryTotal]);
   const taxAndAncillaryTotal = sum([acquisitionTaxTotal, ancillaryTotal]);
 
-  // 중도금 대출 원금은 이미 분양대금 납부에 쓰인 자금이므로 총 필요금액에 다시 더하지 않는다.
+  // 중도금 대출 원금은 남은 분양대금에서 먼저 제외하고, 상환·전환할 금융채무로 한 번만 더한다.
+  const interimLoanRepaymentPrincipal = loanPaidIntermediate;
   const totalRequired = sum([
     remainingBalance,
+    interimLoanRepaymentPrincipal,
     inputs.deferredInterest,
     acquisitionTaxTotal,
     ancillaryTotal,
@@ -238,14 +471,23 @@ export function calculate(inputs: CalculatorInputs): CalculationResult {
   if (safeWon(inputs.acquisitionTaxReduction) > acquisitionTaxBefore) {
     warnings.push("취득세 감면액이 감면 전 취득세보다 커서 감면 후 세금을 0원으로 제한했습니다.");
   }
-  if (inputs.interimLoanPrincipal > 0) {
-    warnings.push("중도금 대출 원금은 참고용이며 총 필요금액에 중복 합산하지 않습니다.");
+  if (
+    inputs.priceInputMode === "preset" &&
+    scheduledPaymentTotal !== safeWon(inputs.salePrice)
+  ) {
+    warnings.push("계약금·중도금·잔금 납부일정 합계가 분양가격과 다릅니다.");
   }
-
   return {
     contractTotal,
     paidTotal,
+    paidToDeveloperTotal,
     remainingBalance,
+    selfPaidIntermediate,
+    loanPaidIntermediate,
+    unpaidIntermediate,
+    scheduledIntermediateTotal,
+    scheduledPaymentTotal,
+    interimLoanRepaymentPrincipal,
     acquisitionTaxBefore,
     acquisitionTaxReductionApplied,
     acquisitionTaxAfter,
@@ -264,7 +506,7 @@ export function calculate(inputs: CalculatorInputs): CalculationResult {
     recommendedCash,
     warnings,
     chart: {
-      balance: remainingBalance,
+      balance: sum([remainingBalance, interimLoanRepaymentPrincipal]),
       tax: acquisitionTaxTotal,
       registration: registrationTotal,
       movingAndWork,
