@@ -8,6 +8,8 @@ import {
 export type ContractMode = "itemized" | "direct";
 export type PriceInputMode = "preset" | "manual";
 export type FinalLoanInputMode = "amount" | "rate";
+export type RuralTaxMode = "rate" | "direct";
+export type RuralTaxBase = "contract" | "reduction";
 export type ReservePreset = 0 | 3 | 5 | 10 | "custom";
 export type InterimPaymentStatus = "unpaid" | "self" | "loan";
 
@@ -63,6 +65,9 @@ export interface CalculatorInputs {
   educationTaxMode: "rate" | "direct";
   educationTaxRateBps: number;
   educationTaxDirect: number;
+  ruralTaxMode: RuralTaxMode;
+  ruralTaxBase: RuralTaxBase;
+  ruralTaxRateBps: number;
   ruralTax: number;
   otherTax: number;
   registrationCosts: Record<string, number>;
@@ -87,6 +92,7 @@ export interface CalculationResult {
   acquisitionTaxReductionApplied: number;
   acquisitionTaxAfter: number;
   educationTax: number;
+  ruralTax: number;
   acquisitionTaxTotal: number;
   registrationTotal: number;
   entryTotal: number;
@@ -236,6 +242,9 @@ export const EXAMPLE_INPUTS: CalculatorInputs = {
   educationTaxMode: "rate",
   educationTaxRateBps: 0,
   educationTaxDirect: 0,
+  ruralTaxMode: "rate",
+  ruralTaxBase: "contract",
+  ruralTaxRateBps: 0,
   ruralTax: 0,
   otherTax: 0,
   registrationCosts: Object.fromEntries(
@@ -335,6 +344,14 @@ export function normalizeCalculatorInputs(saved: unknown): CalculatorInputs {
     priceInputMode: source.priceInputMode ?? "manual",
     housingType: source.housingType ?? "59A",
     floorCategory: source.floorCategory ?? "기준층",
+    // 기존 저장 데이터에는 모드가 없으므로 입력해 둔 금액을 그대로 보존한다.
+    ruralTaxMode:
+      source.ruralTaxMode ??
+      (Object.prototype.hasOwnProperty.call(source, "ruralTax")
+        ? "direct"
+        : "rate"),
+    ruralTaxBase:
+      source.ruralTaxBase === "reduction" ? "reduction" : "contract",
     registrationCosts: {
       ...EXAMPLE_INPUTS.registrationCosts,
       ...(source.registrationCosts ?? {}),
@@ -451,10 +468,20 @@ export function calculate(inputs: CalculatorInputs): CalculationResult {
     inputs.educationTaxMode === "direct"
       ? safeWon(inputs.educationTaxDirect)
       : percentageOf(contractTotal, inputs.educationTaxRateBps);
+  // 농어촌특별세는 적용 사유에 따라 취득가액 또는 취득세 감면액을
+  // 과세표준으로 삼을 수 있어 사용자가 계산 기준과 세율을 직접 선택한다.
+  const ruralTaxRateBase =
+    inputs.ruralTaxBase === "reduction"
+      ? acquisitionTaxReductionApplied
+      : contractTotal;
+  const ruralTax =
+    inputs.ruralTaxMode === "rate"
+      ? percentageOf(ruralTaxRateBase, inputs.ruralTaxRateBps)
+      : safeWon(inputs.ruralTax);
   const acquisitionTaxTotal = sum([
     acquisitionTaxAfter,
     educationTax,
-    inputs.ruralTax,
+    ruralTax,
     inputs.otherTax,
   ]);
 
@@ -548,6 +575,7 @@ export function calculate(inputs: CalculatorInputs): CalculationResult {
     acquisitionTaxReductionApplied,
     acquisitionTaxAfter,
     educationTax,
+    ruralTax,
     acquisitionTaxTotal,
     registrationTotal,
     entryTotal,

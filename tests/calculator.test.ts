@@ -4,6 +4,7 @@ import {
   calculate,
   EMPTY_INPUTS,
   EXAMPLE_INPUTS,
+  normalizeCalculatorInputs,
   type CalculatorInputs,
 } from "../app/lib/calculator.ts";
 
@@ -51,6 +52,47 @@ test("감면액이 취득세보다 크면 취득세를 0원으로 제한한다",
   assert.equal(result.acquisitionTaxBefore, 3_672_900);
   assert.equal(result.acquisitionTaxAfter, 0);
   assert.match(result.warnings.join(" "), /0원으로 제한/);
+});
+
+test("농어촌특별세를 취득가액 기준 세율로 계산한다", () => {
+  const input = copy(EXAMPLE_INPUTS);
+  input.ruralTaxMode = "rate";
+  input.ruralTaxBase = "contract";
+  input.ruralTaxRateBps = 20;
+
+  const result = calculate(input);
+  assert.equal(result.ruralTax, 734_580);
+  assert.equal(result.acquisitionTaxTotal, 734_580);
+});
+
+test("농어촌특별세를 취득세 감면액 기준 세율로 계산한다", () => {
+  const input = copy(EXAMPLE_INPUTS);
+  input.acquisitionTaxRateBps = 100;
+  input.acquisitionTaxReduction = 1_000_000;
+  input.ruralTaxMode = "rate";
+  input.ruralTaxBase = "reduction";
+  input.ruralTaxRateBps = 2_000;
+
+  const result = calculate(input);
+  assert.equal(result.acquisitionTaxReductionApplied, 1_000_000);
+  assert.equal(result.ruralTax, 200_000);
+});
+
+test("농어촌특별세 금액 직접 입력과 기존 저장값을 유지한다", () => {
+  const input = copy(EXAMPLE_INPUTS);
+  input.ruralTaxMode = "direct";
+  input.ruralTax = 123_456;
+  assert.equal(calculate(input).ruralTax, 123_456);
+
+  const legacy = copy(EXAMPLE_INPUTS) as unknown as Record<string, unknown>;
+  delete legacy.ruralTaxMode;
+  delete legacy.ruralTaxBase;
+  delete legacy.ruralTaxRateBps;
+  legacy.ruralTax = 654_321;
+
+  const restored = normalizeCalculatorInputs(legacy);
+  assert.equal(restored.ruralTaxMode, "direct");
+  assert.equal(calculate(restored).ruralTax, 654_321);
 });
 
 test("대출이 총 필요금액보다 크면 현금은 0원이고 여유분을 표시한다", () => {

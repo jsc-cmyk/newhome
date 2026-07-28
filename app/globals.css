@@ -51,6 +51,8 @@ h1 { font-size:clamp(36px,5vw,64px); letter-spacing:-.05em; line-height:1.08; ma
 .mode-switch input { accent-color:var(--blue); }
 .mode-switch.compact { margin-top:22px; }
 .mode-switch label.disabled { color:#9ca3af; background:#f3f4f6; cursor:not-allowed; }
+.tax-subsection { border-top:1px dashed var(--line); margin-top:24px; padding-top:2px; }
+.tax-subsection .section-help { margin:16px 0 0; }
 .loan-input-mode { margin-bottom:18px; }
 .loan-rate-hint { margin:-8px 0 18px; }
 .loan-rate-summary { margin-top:16px; }

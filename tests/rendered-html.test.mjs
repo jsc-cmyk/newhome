@@ -34,5 +34,8 @@ test("입주비용 계산기 화면을 서버 렌더링한다", async () => {
   assert.match(html, /잔금대출 예정금액이 입력되지 않아/);
   assert.match(html, /분양가\+확장비 비율/);
   assert.match(html, /잔금대출 입력 방식/);
+  assert.match(html, /농어촌특별세 입력 방식/);
+  assert.match(html, /농어촌특별세율/);
+  assert.match(html, /취득가액\(총 계약금액\)/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/);
 });
