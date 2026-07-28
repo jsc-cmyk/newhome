@@ -27,6 +27,12 @@ export const APARTMENT_PRESET_INFO = {
 } as const;
 
 export const HOUSING_TYPES: readonly HousingType[] = ["59A", "59B", "84A", "84B"];
+export const APARTMENT_EXTENSION_COSTS: Readonly<Record<HousingType, number>> = {
+  "59A": 8_290_000,
+  "59B": 8_790_000,
+  "84A": 10_290_000,
+  "84B": 8_440_000,
+};
 export const FLOOR_CATEGORIES: readonly FloorCategory[] = [
   "기준층",
   "5층",
@@ -362,6 +368,10 @@ export function getBaselinePriceDifference(
     getApartmentPreset(housingType, floorCategory).salePrice -
     getApartmentPreset(housingType, "기준층").salePrice
   );
+}
+
+export function getApartmentExtensionCost(housingType: HousingType): number {
+  return APARTMENT_EXTENSION_COSTS[housingType];
 }
 
 export function validateApartmentPricePresets(): string[] {

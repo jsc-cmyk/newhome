@@ -19,7 +19,7 @@ test("입주비용 계산기 화면을 서버 렌더링한다", async () => {
   assert.match(html, /입주 전에, 필요한 현금을/);
   assert.match(html, /총 계약금액/);
   assert.match(html, /367,290,000원/);
-  assert.match(html, /실제 준비 현금/);
+  assert.match(html, /현재 입력 기준 준비 현금/);
   assert.match(html, /예시 단지에서 선택/);
   assert.match(html, /주택형/);
   assert.match(html, /기준층/);
@@ -30,5 +30,7 @@ test("입주비용 계산기 화면을 서버 렌더링한다", async () => {
   assert.match(html, /aria-controls="interim-payment-panel"/);
   assert.match(html, /id="interim-payment-panel"/);
   assert.match(html, /중도금 대출 상환 예정 원금/);
+  assert.match(html, /취득세율이 입력되지 않아/);
+  assert.match(html, /잔금대출 예정금액이 입력되지 않아/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/);
 });

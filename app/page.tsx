@@ -37,7 +37,7 @@ const summaryCards = [
   ["remainingBalance", "남은 분양대금"],
   ["taxAndAncillaryTotal", "세금 및 부대비용"],
   ["loanCoverage", "잔금대출 예정금액"],
-  ["cashNeeded", "실제 준비 현금"],
+  ["cashNeeded", "현재 입력 기준 준비 현금"],
   ["recommendedCash", "예비비 포함 권장액"],
 ] as const;
 
@@ -69,6 +69,14 @@ export default function Home() {
     [inputs.housingType],
   );
   const priceDifference = selectedPreset.salePrice - baselineSalePrice;
+  const inputNotices = [
+    inputs.acquisitionTaxRateBps <= 0
+      ? "취득세율이 입력되지 않아 취득 관련 세금이 0원으로 계산될 수 있습니다."
+      : null,
+    inputs.finalLoan <= 0
+      ? "잔금대출 예정금액이 입력되지 않아 대출 충당금액을 0원으로 계산했습니다."
+      : null,
+  ].filter((notice): notice is string => notice !== null);
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -118,6 +126,19 @@ export default function Home() {
     setToast(message);
     window.setTimeout(() => setToast(""), 2200);
   };
+  const resetAll = () => {
+    if (
+      !window.confirm(
+        "입력한 모든 금액과 선택값을 초기화하시겠습니까? 저장된 내용도 삭제됩니다.",
+      )
+    ) {
+      return;
+    }
+    setInputs(cloneInputs(EMPTY_INPUTS));
+    localStorage.removeItem(STORAGE_KEY);
+    setInstallmentOpen(false);
+    notify("전체 입력값을 초기화했습니다.");
+  };
 
   const rows = [
     ["총 계약금액", result.contractTotal],
@@ -132,7 +153,7 @@ export default function Home() {
     ["입주 준비비용", result.entryTotal],
     ["총 필요금액", result.totalRequired],
     ["잔금대출 예정금액", result.loanCoverage],
-    ["실제 준비해야 할 현금", result.cashNeeded],
+    ["현재 입력 기준 준비 현금", result.cashNeeded],
     ["자금 여유분", result.surplus],
     ["예비비", result.reserveAmount],
     ["권장 준비금액", result.recommendedCash],
@@ -175,7 +196,7 @@ export default function Home() {
           <p>분양 잔금부터 세금, 등기, 이사 준비비까지 빠짐없이 모아보는 입주 자금 계획표입니다.</p>
         </div>
         <div className="hero-actions no-print">
-          <button className="button ghost" onClick={() => { setInputs(cloneInputs(EMPTY_INPUTS)); localStorage.removeItem(STORAGE_KEY); }}>전체 초기화</button>
+          <button className="button ghost" onClick={resetAll}>전체 초기화</button>
           <button className="button light" onClick={loadExample}>예시값 불러오기</button>
         </div>
       </header>
@@ -403,6 +424,10 @@ export default function Home() {
                       <ResultLine label="본인 자금 납부 중도금" value={result.selfPaidIntermediate} />
                       <ResultLine label="중도금 대출 납부액" value={result.loanPaidIntermediate} />
                       <ResultLine label="미납 중도금" value={result.unpaidIntermediate} />
+                      <ResultLine
+                        label={inputs.priceInputMode === "manual" ? "자동 계산 잔금" : "공고문 잔금"}
+                        value={result.scheduledBalanceAmount}
+                      />
                       <ResultLine label="납부일정 합계" value={result.scheduledPaymentTotal} strong />
                     </div>
                   </div>
@@ -479,10 +504,16 @@ export default function Home() {
             <span className="eyebrow dark">FINAL PLAN</span>
             <h2>최종 계산 결과</h2>
             <div className="cash-hero">
-              <span>입주 시 준비할 현금</span>
+              <span>현재 입력 기준 준비 현금</span>
               <strong>{formatWon(result.cashNeeded)}</strong>
               <small>{formatKoreanWon(result.cashNeeded)}</small>
             </div>
+            {inputNotices.length > 0 && (
+              <div className="result-guidance" role="note" aria-label="미입력 항목 안내">
+                <strong>계산 전 확인해 주세요.</strong>
+                {inputNotices.map((notice) => <p key={notice}>• {notice}</p>)}
+              </div>
+            )}
             {result.surplus > 0 && <div className="surplus">대출·자금 여유분 <strong>{formatWon(result.surplus)}</strong></div>}
             <div className="chart" aria-label="전체 필요금액 구성 막대그래프">
               <div className="chart-bar">
