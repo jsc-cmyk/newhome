@@ -498,6 +498,12 @@ export default function Home() {
               {inputs.educationTaxMode === "rate"
                 ? <RateInput id="educationRate" label="지방교육세율" value={inputs.educationTaxRateBps} onChange={(v) => set("educationTaxRateBps", v)} />
                 : <MoneyInput id="educationDirect" label="지방교육세" value={inputs.educationTaxDirect} onChange={(v) => set("educationTaxDirect", v)} />}
+              <MoneyInput
+                id="educationTaxReduction"
+                label="지방교육세 감면금액"
+                value={inputs.educationTaxReduction}
+                onChange={(value) => set("educationTaxReduction", value)}
+              />
               <MoneyInput id="otherTax" label="기타 세금" value={inputs.otherTax} onChange={(v) => set("otherTax", v)} />
             </div>
             <div className="tax-subsection">
@@ -548,7 +554,9 @@ export default function Home() {
               <ResultLine label="감면 전 취득세" value={result.acquisitionTaxBefore} />
               <ResultLine label="취득세 감면액" value={result.acquisitionTaxReductionApplied} />
               <ResultLine label="감면 후 취득세" value={result.acquisitionTaxAfter} />
-              <ResultLine label="지방교육세" value={result.educationTax} />
+              <ResultLine label="감면 전 지방교육세" value={result.educationTaxBefore} />
+              <ResultLine label="지방교육세 감면액" value={result.educationTaxReductionApplied} />
+              <ResultLine label="감면 후 지방교육세" value={result.educationTax} />
               <ResultLine label="농어촌특별세" value={result.ruralTax} />
               <ResultLine label="취득 관련 세금 합계" value={result.acquisitionTaxTotal} strong />
             </div>
